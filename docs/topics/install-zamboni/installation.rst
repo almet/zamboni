@@ -145,7 +145,7 @@ Finish the install
 
 From inside your activated virtualenv, run::
 
-    pip install -r requirements/dev.txt -r requirements/compiled.txt
+    pip install -r requirements/dev.txt -r requirements/compiled.txt --no-deps
 
 pip installs a few packages into our new virtualenv that we can't distribute in
 ``zamboni-lib``.  These require a C compiler.
@@ -227,7 +227,7 @@ Each incremental change we add to the database is done with a versioned SQL
 (and sometimes Python) file. To keep your local DB fresh and up to date, run
 migrations like this::
 
-    ./vendor/src/schematic/schematic migrations
+    $ shematic migrations
 
 More info on schematic: https://github.com/jbalogh/schematic
 
@@ -341,7 +341,7 @@ This updates zamboni-lib in the ``vendor/`` directory::
 
 We use `schematic <http://github.com/jbalogh/schematic/>`_ to run migrations::
 
-    ./vendor/src/schematic/schematic migrations
+    $ schematic migrations
 
 The :ref:`contributing` page has more on managing branches.
 
