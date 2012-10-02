@@ -40,7 +40,7 @@ def global_settings(request):
             tools_links.append({'text': _('Developer Hub'),
                                 'href': reverse('ecosystem.landing'),
                                 'target': '_blank'})
-            if amo_user.is_app_developer:
+            if amo_user and amo_user.is_app_developer:
                 tools_links.append({'text': _('My Submissions'),
                                     'href': reverse('mkt.developers.apps'),
                                     'target': '_blank'})
