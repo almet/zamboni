@@ -6,6 +6,8 @@ from babel import numbers
 from pyquery import PyQuery as pq
 from nose.exc import SkipTest
 from nose.tools import eq_
+import mock
+from django.conf import settings
 
 import amo
 from abuse.models import AbuseReport
@@ -99,6 +101,7 @@ class TestAcctSummary(TestCase):
         eq_(sm['inapp_amount']['USD'], 4.0)
         eq_(sm['inapp_amount']['GBR'], 2.0)
 
+    @mock.patch.object(settings, 'TASK_USER_ID', 4043307)
     def test_requested_refunds(self):
         contrib = Contribution.objects.create(type=amo.CONTRIB_PURCHASE,
                                               user_id=self.user.pk,
@@ -110,6 +113,7 @@ class TestAcctSummary(TestCase):
         eq_(res.context['refund_summary']['requested'], 1)
         eq_(res.context['refund_summary']['approved'], 0)
 
+    @mock.patch.object(settings, 'TASK_USER_ID', 4043307)
     def test_approved_refunds(self):
         contrib = Contribution.objects.create(type=amo.CONTRIB_PURCHASE,
                                               user_id=self.user.pk,
@@ -304,9 +308,14 @@ class AppSummaryTest(TestCase):
                 'base/addon_3615', 'market/prices']
 
     def _setUp(self):
+        patcher = mock.patch.object(settings, 'TASK_USER_ID', 4043307)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
         self.app = Addon.objects.get(pk=337141)
         self.url = reverse('lookup.app_summary',
                            args=[self.app.pk])
+        self.user = UserProfile.objects.get(pk=31337)
         assert self.client.login(username='support-staff@mozilla.com',
                                  password='password')
 
@@ -454,6 +463,7 @@ class TestAppSummaryPurchases(AppSummaryTest):
         for curr, amount in (('USD', '2.00'), ('EUR', '1.00')):
             for i in range(3):
                 c = Contribution.objects.create(addon=self.app,
+                                                user=self.user,
                                                 amount=Decimal(amount),
                                                 currency=curr,
                                                 type=typ)
@@ -502,6 +512,7 @@ class TestAppSummaryPurchases(AppSummaryTest):
                        'AP-1235',
                        None):  # indicates other
             Contribution.objects.create(addon=self.app,
+                                        user=self.user,
                                         amount=Decimal('0.99'),
                                         currency='USD',
                                         paykey=paykey,
@@ -513,6 +524,7 @@ class TestAppSummaryPurchases(AppSummaryTest):
 
     def test_inapp_pay_methods(self):
         Contribution.objects.create(addon=self.app,
+                                    user=self.user,
                                     amount=Decimal('0.99'),
                                     currency='USD',
                                     paykey='AP-1235',
@@ -527,6 +539,7 @@ class TestAppSummaryRefunds(AppSummaryTest):
     def setUp(self):
         super(TestAppSummaryRefunds, self).setUp()
         self._setUp()
+        self.user = UserProfile.objects.get(pk=999)
         self.contrib1 = self.purchase()
         self.contrib2 = self.purchase()
         self.contrib3 = self.purchase()
@@ -534,6 +547,7 @@ class TestAppSummaryRefunds(AppSummaryTest):
 
     def purchase(self):
         return Contribution.objects.create(addon=self.app,
+                                           user=self.user,
                                            amount=Decimal('0.99'),
                                            currency='USD',
                                            paykey='AP-1235',
@@ -668,6 +682,7 @@ class TestPurchases(amo.tests.TestCase):
         eq_(res.status_code, 200)
         eq_(len(pq(res.content)('p.no-results')), 1)
 
+    @mock.patch.object(settings, 'TASK_USER_ID', 4043307)
     def test_purchase_shows_up(self):
         Contribution.objects.create(user=self.user, addon=self.app,
                                     amount=1, type=amo.CONTRIB_PURCHASE)
@@ -678,6 +693,7 @@ class TestPurchases(amo.tests.TestCase):
         eq_(doc('ol.listing a.mkt-tile').attr('href'),
             urlparams(self.app.get_detail_url(), src=''))
 
+    @mock.patch.object(settings, 'TASK_USER_ID', 4043307)
     def test_no_support_link(self):
         for type_ in [amo.CONTRIB_PURCHASE, amo.CONTRIB_INAPP]:
             Contribution.objects.create(user=self.user, addon=self.app,
