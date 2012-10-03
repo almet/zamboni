@@ -123,6 +123,7 @@ class TestRequestSupport(PurchaseBase):
         res = self.client.post(self.get_support_url('reason'))
         self.assertRedirects(res, self.get_support_url('request'))
 
+    @mock.patch.object(settings, 'TASK_USER_ID', 4043307)
     def test_request(self):
         self.client.post(self.get_support_url('request'), {'remove': 1})
         res = self.client.post(self.get_support_url('reason'),
@@ -151,6 +152,7 @@ class TestRequestSupport(PurchaseBase):
         self.assertRedirects(res, reverse('account.purchases'), 302)
 
     @mock.patch('stats.models.Contribution.is_instant_refund')
+    @mock.patch.object(settings, 'TASK_USER_ID', 4043307)
     def test_request_mails(self, is_instant_refund):
         is_instant_refund.return_value = False
         self.app.support_email = 'a@a.com'
