@@ -377,17 +377,6 @@ class TestCategorySearch(BrowseBase):
                             {'sort': 'downloads'})
         eq_(r.status_code, 404)
 
-    def test_non_indexed_cat(self):
-        new_cat = Category.objects.create(name='Slap Tickling', slug='booping',
-                                          type=amo.ADDON_WEBAPP)
-
-
-        r = self.client.get(reverse('browse.apps', args=[new_cat.slug]),
-                            {'sort': 'downloads'})
-
-        # If the category has no indexed apps, we redirect to main search page.
-        self.assertRedirects(r, reverse('search.search'))
-
     def test_sidebar(self):
         # TODO(dspasovski): Fix this.
         raise SkipTest
