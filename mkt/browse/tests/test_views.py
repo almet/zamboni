@@ -40,30 +40,44 @@ class BrowseBase(amo.tests.ESTestCase):
                                          region=mkt.regions.US.id)
         return f
 
-    def setup_featured(self, num=3):
+    def _create_featured_app(self, category=None, mobile=False,
+                                  desktop=False):
+        if mobile and desktop:
+            raise ValueError('an app could not be only desktop and mobile')
+        # Home featured.
+        app = amo.tests.app_factory()
+        self.make_featured(app=app, category=category)
+
+        # Make this app compatible on only desktop.
+        if desktop:
+            app.addondevicetype_set.create(device_type=amo.DEVICE_DESKTOP.id)
+        if mobile:
+            app.addondevicetype_set.create(device_type=amo.DEVICE_MOBILE.id)
+        return app
+
+    def setup_featured(self, num=4):
+        """Create some featured apps for the current category, and some others
+        for the homepage.
+
+        Per default, generates 3 category featured apps and one additional one,
+        if asked for more, it will create additional home featured apps.  You
+        can ask more than 4 apps by changing :param num:.
+
+        """
         self.skip_if_disabled(settings.REGION_STORES)
 
-        # Category featured.
-        a = amo.tests.app_factory()
-        self.make_featured(app=a, category=self.cat)
+        category_featured = []
+        home_featured = []
+        # Create 3 apps that are category featured.
+        for _ in range(3):
+            category_featured.append(self._create_featured_app(self.cat))
 
-        b = amo.tests.app_factory()
-        self.make_featured(app=b, category=self.cat)
+        home_featured.append(self._create_featured_app(desktop=True))
 
-        # Home featured.
-        c = amo.tests.app_factory()
-        self.make_featured(app=c, category=None)
-        # Make this app compatible on only desktop.
-        c.addondevicetype_set.create(device_type=amo.DEVICE_DESKTOP.id)
+        if num == 5:
+            home_featured.append(self._create_featured_app(mobile=True))
 
-        if num == 4:
-            d = amo.tests.app_factory()
-            self.make_featured(app=d, category=None)
-            # Make this app compatible on only mobile.
-            d.addondevicetype_set.create(device_type=amo.DEVICE_MOBILE.id)
-            return a, b, c, d
-        else:
-            return a, b, c
+        return category_featured, home_featured
 
     def setup_popular(self):
         # When run individually these tests always pass fine.
@@ -95,18 +109,18 @@ class BrowseBase(amo.tests.ESTestCase):
 
     def _test_featured(self):
         """This is common to / and /apps/, so let's be DRY."""
-        a, b, c = self.setup_featured()
+        _, (home_featured,) = self.setup_featured()
         # Check that the Home featured app is shown only in US region.
         for region in mkt.regions.REGIONS_DICT:
             eq_(self.get_pks('featured', self.url, {'region': region}),
-                [c.id] if region == 'us' else [])
+                [home_featured.id] if region == 'us' else [])
 
     def _test_featured_region_exclusions(self):
-        a, b, c = self.setup_featured()
-        AER.objects.create(addon=c, region=mkt.regions.BR.id)
+        _, (home_featured,) = self.setup_featured()
+        AER.objects.create(addon=home_featured, region=mkt.regions.BR.id)
 
         # Feature this app in all regions.
-        f = c.featuredapp_set.all()[0]
+        f = home_featured.featuredapp_set.all()[0]
 
         for region_id in mkt.regions.REGIONS_CHOICES_ID_DICT:
             # `setup_featured` already added this to the US region.
@@ -117,7 +131,7 @@ class BrowseBase(amo.tests.ESTestCase):
 
         for region in mkt.regions.REGIONS_DICT:
             eq_(self.get_pks('featured', self.url, {'region': region}),
-                [] if region == 'br' else [c.id])
+                [] if region == 'br' else [home_featured.id])
 
     def _test_popular_pks(self, url, pks):
         r = self.client.get(self.url)
@@ -173,7 +187,7 @@ class TestIndexLanding(BrowseBase):
         self._test_featured_region_exclusions()
 
     def test_featured_src(self):
-        _, _, featured = self.setup_featured()
+        _, (featured,) = self.setup_featured()
 
         r = self.client.get(self.url)
         doc = pq(r.content)
@@ -286,29 +300,29 @@ class TestCategoryLanding(BrowseBase):
 
     def test_featured(self):
         # TODO(dspasovski): Fix this.
-        a, b, c = self.setup_featured()
+        featured, _ = self.setup_featured()
 
         # Check that these apps are featured for this category -
         # and only in US region.
         for region in mkt.regions.REGIONS_DICT:
             eq_(self.get_pks('featured', self.url, {'region': region}),
-                [a.id, b.id] if region == 'us' else [])
+                [a.id for a in featured] if region == 'us' else [], region)
 
         # Check that these apps are not featured for another category.
         new_cat_url = reverse('browse.apps', args=[self.get_new_cat().slug])
         eq_(self.get_pks('featured', new_cat_url), [])
 
     def test_featured_src(self):
-        a, b, _ = self.setup_featured()
+        featured, _ = self.setup_featured()
 
         r = self.client.get(self.url)
         doc = pq(r.content)
 
-        featured_tiles = doc('.featured .mkt-tile')
-        eq_(featured_tiles.eq(0).attr('href'),
-            a.get_detail_url() + '?src=mkt-category-featured')
-        eq_(featured_tiles.eq(1).attr('href'),
-            b.get_detail_url() + '?src=mkt-category-featured')
+        featured_tiles = doc('#featured .mkt-tile')
+
+        for i in range(3):
+            eq_(featured_tiles.eq(0).attr('href'),
+                featured[0].get_detail_url() + '?src=mkt-category-featured')
 
         eq_(doc('.listing .mkt-tile').attr('href'),
             self.webapp.get_detail_url() + '?src=mkt-category')
@@ -366,6 +380,8 @@ class TestCategorySearch(BrowseBase):
     def test_non_indexed_cat(self):
         new_cat = Category.objects.create(name='Slap Tickling', slug='booping',
                                           type=amo.ADDON_WEBAPP)
+
+
         r = self.client.get(reverse('browse.apps', args=[new_cat.slug]),
                             {'sort': 'downloads'})
 
