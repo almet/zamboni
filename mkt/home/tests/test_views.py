@@ -45,27 +45,34 @@ class TestHome(BrowseBase):
 
     @mock_es
     def test_featured_desktop(self):
-        a, b, c, d = self.setup_featured(4)
+        self.setup_featured(nb_home_mobile=1, nb_home_desktop=1)
         # Check that the Home featured app is shown only in US region.
+        ids = [self.home_desktop_featured[0].id,
+               self.home_mobile_featured[0].id]
+
         for region in mkt.regions.REGIONS_DICT:
             pks = self.get_pks('featured', self.url,
                                {'region': region})
-            self.assertSetEqual(pks, [c.id, d.id] if region == 'us' else [])
+            self.assertSetEqual(pks, ids if region == 'us' else [])
 
     @mock_es
     def test_featured_mobile(self):
-        a, b, c, d = self.setup_featured(4)
+        self.setup_featured(nb_home_mobile=1)
+        featured = self.home_mobile_featured[0]
+
         # Check that the Home featured app is shown only in US region.
         for region in mkt.regions.REGIONS_DICT:
             pks = self.get_pks('featured', self.url,
                                {'region': region, 'mobile': 'true'})
-            self.assertSetEqual(pks, [d.id] if region == 'us' else [])
+            self.assertSetEqual(pks, [featured.id] if region == 'us' else [])
 
     def test_featured_src(self):
-        _, _, app = self.setup_featured()
+        self.setup_featured()
+        featured = self.home_desktop_featured[0]
+
         r = self.client.get(self.url)
         eq_(pq(r.content)('.mkt-tile').attr('href'),
-            app.get_detail_url() + '?src=mkt-home')
+            featured.get_detail_url() + '?src=mkt-home')
 
     def test_tile_no_rating_link(self):
         r = self.client.get(self.url)
@@ -77,8 +84,9 @@ class TestHome(BrowseBase):
 
     @mock_es
     def test_featured_fallback_to_worldwide(self):
-        a, b, c = self.setup_featured()
+        self.setup_featured()
 
+        # create 5 featured apps on the homepage
         worldwide_apps = [app_factory().id for x in xrange(5)]
         for app in worldwide_apps:
             fa = FeaturedApp.objects.create(app_id=app, category=None)
@@ -87,13 +95,15 @@ class TestHome(BrowseBase):
 
         # In US: 1 US-featured app + 5 Worldwide-featured app.
         # Elsewhere: 6 Worldwide-featured apps.
+        featured = self.home_desktop_featured[0]
+
         for region in mkt.regions.REGIONS_DICT:
             if region == 'us':
-                expected = [c.id] + worldwide_apps[:5]
+                expected = [featured.id] + worldwide_apps[:5]
             else:
-                expected = worldwide_apps
-            eq_(self.get_pks('featured', self.url, {'region': region}),
-                expected)
+                expected = worldwide_apps[:3]
+            eq_(expected,
+                self.get_pks('featured', self.url, {'region': region}), region)
 
     def test_popular(self):
         self._test_popular()

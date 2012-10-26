@@ -28,6 +28,10 @@ class BrowseBase(amo.tests.ESTestCase):
         self.webapp.save()
         self.refresh()
 
+        self.category_featured = []
+        self.home_mobile_featured = []
+        self.home_desktop_featured = []
+
     def get_pks(self, key, url, data=None):
         r = self.client.get(url, data or {})
         eq_(r.status_code, 200)
@@ -55,29 +59,45 @@ class BrowseBase(amo.tests.ESTestCase):
             app.addondevicetype_set.create(device_type=amo.DEVICE_MOBILE.id)
         return app
 
-    def setup_featured(self, num=4):
+    def setup_featured(self, nb_category=3, nb_home_desktop=1,
+                       nb_home_mobile=0):
         """Create some featured apps for the current category, and some others
         for the homepage.
 
-        Per default, generates 3 category featured apps and one additional one,
-        if asked for more, it will create additional home featured apps.  You
-        can ask more than 4 apps by changing :param num:.
+        You can specify the number of featured applications you want to
+        provide, using the parameters.
 
+        :param nb_category:
+            Number of featured apps to generate for the current category.
+
+        :param nb_home_desktop:
+            Number of featured apps to generate for the homepage, that are only
+            desktop-enabled.
+
+        :param nb_home_mobile:
+            Number of featured apps to generate for the homepage, that are
+            only mobile-enabled.
+
+        Stores the generated featured apps in: self.category_featured,
+        self.home_mobile_featured and self.home_desktop_featured.
         """
+
         self.skip_if_disabled(settings.REGION_STORES)
 
-        category_featured = []
-        home_featured = []
-        # Create 3 apps that are category featured.
-        for _ in range(3):
-            category_featured.append(self._create_featured_app(self.cat))
+        self.category_featured = []
+        self.home_mobile_featured = []
+        self.home_desktop_featured = []
 
-        home_featured.append(self._create_featured_app(desktop=True))
+        for _ in range(nb_category):
+            self.category_featured.append(self._create_featured_app(self.cat))
 
-        if num == 5:
-            home_featured.append(self._create_featured_app(mobile=True))
+        for _ in range(nb_home_desktop):
+            self.home_desktop_featured.append(
+                    self._create_featured_app(desktop=True))
 
-        return category_featured, home_featured
+        for _ in range(nb_home_mobile):
+            self.home_mobile_featured.append(
+                    self._create_featured_app(mobile=True))
 
     def setup_popular(self):
         # When run individually these tests always pass fine.
@@ -109,14 +129,16 @@ class BrowseBase(amo.tests.ESTestCase):
 
     def _test_featured(self):
         """This is common to / and /apps/, so let's be DRY."""
-        _, (home_featured,) = self.setup_featured()
+        self.setup_featured()
+        home_featured = self.home_desktop_featured[0]
         # Check that the Home featured app is shown only in US region.
         for region in mkt.regions.REGIONS_DICT:
             eq_(self.get_pks('featured', self.url, {'region': region}),
                 [home_featured.id] if region == 'us' else [])
 
     def _test_featured_region_exclusions(self):
-        _, (home_featured,) = self.setup_featured()
+        self.setup_featured()
+        home_featured = self.home_desktop_featured[0]
         AER.objects.create(addon=home_featured, region=mkt.regions.BR.id)
 
         # Feature this app in all regions.
@@ -187,12 +209,13 @@ class TestIndexLanding(BrowseBase):
         self._test_featured_region_exclusions()
 
     def test_featured_src(self):
-        _, (featured,) = self.setup_featured()
+        self.setup_featured()
+        featured = self.home_desktop_featured[0]
 
         r = self.client.get(self.url)
         doc = pq(r.content)
 
-        eq_(doc('.featured .mkt-tile').attr('href'),
+        eq_(doc('#featured .mkt-tile').attr('href'),
             featured.get_detail_url() + '?src=mkt-browse-featured')
         eq_(doc('.listing .mkt-tile').attr('href'),
             self.webapp.get_detail_url() + '?src=mkt-browse')
@@ -299,8 +322,8 @@ class TestCategoryLanding(BrowseBase):
         eq_(pq(r.content)('.no-results').length, 1)
 
     def test_featured(self):
-        # TODO(dspasovski): Fix this.
-        featured, _ = self.setup_featured()
+        self.setup_featured()
+        featured = self.category_featured
 
         # Check that these apps are featured for this category -
         # and only in US region.
@@ -313,16 +336,17 @@ class TestCategoryLanding(BrowseBase):
         eq_(self.get_pks('featured', new_cat_url), [])
 
     def test_featured_src(self):
-        featured, _ = self.setup_featured()
+        self.setup_featured()
+        featured = self.category_featured
 
         r = self.client.get(self.url)
         doc = pq(r.content)
 
         featured_tiles = doc('#featured .mkt-tile')
 
-        for i in range(3):
-            eq_(featured_tiles.eq(0).attr('href'),
-                featured[0].get_detail_url() + '?src=mkt-category-featured')
+        for i in range(2):
+            eq_(featured_tiles.eq(i).attr('href'),
+                featured[i].get_detail_url() + '?src=mkt-category-featured')
 
         eq_(doc('.listing .mkt-tile').attr('href'),
             self.webapp.get_detail_url() + '?src=mkt-category')
