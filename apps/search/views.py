@@ -490,6 +490,8 @@ def name_only_query(q):
              'startswith': {'value': q, 'boost': 1.5}}
     for k, v in rules.iteritems():
         for field in ('name', 'slug', 'app_slug', 'authors'):
+            if field == 'authors' and k == 'startswith':
+                continue
             d['%s__%s' % (field, k)] = v
 
     analyzer = _get_locale_analyzer()

@@ -86,8 +86,8 @@ class TestHome(BrowseBase):
     def test_featured_fallback_to_worldwide(self):
         self.setup_featured()
 
-        # create 5 featured apps on the homepage
-        worldwide_apps = [app_factory().id for x in xrange(5)]
+        # Create 5 featured apps on the homepage.
+        worldwide_apps = (app_factory().id for x in xrange(5))
         for app in worldwide_apps:
             fa = FeaturedApp.objects.create(app_id=app, category=None)
             FeaturedAppRegion.objects.create(featured_app=fa,

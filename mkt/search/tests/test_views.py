@@ -512,14 +512,14 @@ class TestFilterMobileCompat(amo.tests.ESTestCase):
         # search results.
         url = urlparams(reverse('search.search'), q='Basta')
 
-        resp_desktop = self.client.get(url, {'mobile': 'false'})
-        resp_mobile = self.client.get(url, {'mobile': 'true'})
+        res_desktop = self.client.get(url, {'mobile': 'false'})
+        res_mobile = self.client.get(url, {'mobile': 'true'})
 
-        eq_(resp_desktop.status_code, 200)
-        eq_(resp_mobile.status_code, 200)
+        eq_(res_desktop.status_code, 200)
+        eq_(res_mobile.status_code, 200)
 
-        p_desktop = pq(resp_desktop.content)
-        p_mobile = pq(resp_mobile.content)
+        p_desktop = pq(res_desktop.content)
+        p_mobile = pq(res_mobile.content)
 
         assert p_desktop('#device-facets')
         assert not p_mobile('#device-facets')
@@ -570,17 +570,17 @@ class TestFilterGaiaCompat(amo.tests.ESTestCase):
         url = urlparams(url, gaia='true' if device_is_gaia else 'false')
 
         self.refresh()
-        resp = self.client.get(url, follow=True)
-        eq_(resp.status_code, 200)
+        res = self.client.get(url, follow=True)
+        eq_(res.status_code, 200)
 
         # If the app is premium and the device isn't gaia, assert
         # that the app doesn't show up in the listing.
         if app_is_premium and not device_is_gaia:
-            assert self.app_name not in resp.content, (
+            assert self.app_name not in res.content, (
                 'Found premium app in non-gaia for %s' % url)
         elif app_is_premium and device_is_gaia:
             # Otherwise assert that it does.
-            assert self.app_name in resp.content, (
+            assert self.app_name in res.content, (
                 "Couldn't find premium app in gaia for %s" % url)
 
     def _generate(self):

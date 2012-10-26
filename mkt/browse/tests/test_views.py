@@ -44,10 +44,8 @@ class BrowseBase(amo.tests.ESTestCase):
                                          region=mkt.regions.US.id)
         return f
 
-    def _create_featured_app(self, category=None, mobile=False,
-                                  desktop=False):
-        if mobile and desktop:
-            raise ValueError('an app could not be only desktop and mobile')
+    def _create_featured_app(self, category=None, mobile=False, desktop=False):
+        assert not (mobile and desktop)
         # Home featured.
         app = amo.tests.app_factory()
         self.make_featured(app=app, category=category)
@@ -344,9 +342,9 @@ class TestCategoryLanding(BrowseBase):
 
         featured_tiles = doc('#featured .mkt-tile')
 
-        for i in range(2):
-            eq_(featured_tiles.eq(i).attr('href'),
-                featured[i].get_detail_url() + '?src=mkt-category-featured')
+        for tile, listing in zip(featured_tiles, featured):
+            eq_(tile.attr('href'),
+                listing.get_detail_url() + '?src=mkt-category-featured')
 
         eq_(doc('.listing .mkt-tile').attr('href'),
             self.webapp.get_detail_url() + '?src=mkt-category')
@@ -400,6 +398,16 @@ class TestCategorySearch(BrowseBase):
         r = self.client.get(reverse('browse.apps', args=['xxx']),
                             {'sort': 'downloads'})
         eq_(r.status_code, 404)
+
+    def test_non_indexed(self):
+        raise SkipTest
+        new_cat = Category.objects.create(name='Slap Tickling', slug='booping',
+                                          type=amo.ADDON_WEBAPP)
+
+        r = self.client.get(reverse('browse.apps', args=[new_cat.slug]),
+                            {'sort': 'downloads'})
+        # If the category has no indexed apps, we redirect to main search page.
+        self.assertRedirects(r, reverse('search.search'))
 
     def test_sidebar(self):
         # TODO(dspasovski): Fix this.
