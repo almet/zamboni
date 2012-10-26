@@ -24,9 +24,13 @@ from mkt.webapps.models import AddonExcludedRegion as AER, Installed, Webapp
 
 class SearchBase(amo.tests.ESTestCase):
 
-    def get_results(self, r, sort=False):
-        """Return pks of add-ons shown on search results page."""
-        results = [a.id for a in r.context['pager'].object_list]
+    def get_results(self, response, sort=False):
+        """Return pks of add-ons shown on search results page.
+
+        :param sort:
+            Sort the results with python sort function. (False by default)
+        """
+        results = [addon.id for addon in response.context['pager'].object_list]
         if sort:
             results = sorted(results)
         return results
@@ -566,17 +570,17 @@ class TestFilterGaiaCompat(amo.tests.ESTestCase):
         url = urlparams(url, gaia='true' if device_is_gaia else 'false')
 
         self.refresh()
-        r = self.client.get(url, follow=True)
-        eq_(r.status_code, 200)
+        resp = self.client.get(url, follow=True)
+        eq_(resp.status_code, 200)
 
         # If the app is premium and the device isn't gaia, assert
         # that the app doesn't show up in the listing.
         if app_is_premium and not device_is_gaia:
-            assert self.app_name not in r.content, (
+            assert self.app_name not in resp.content, (
                 'Found premium app in non-gaia for %s' % url)
         elif app_is_premium and device_is_gaia:
             # Otherwise assert that it does.
-            assert self.app_name in r.content, (
+            assert self.app_name in resp.content, (
                 "Couldn't find premium app in gaia for %s" % url)
 
     def _generate(self):
@@ -586,14 +590,14 @@ class TestFilterGaiaCompat(amo.tests.ESTestCase):
                  reverse('search.suggestions') + '?q=Basta&cat=apps']
 
         for view in views:
-
             for app_is_premium in (True, False):
                 for device_is_gaia in (False, True):
-                    yield self.test_url, view, app_is_premium, device_is_gaia
+                    yield view, app_is_premium, device_is_gaia
 
     def test_generator(self):
         # This is necessary until we can get test generator methods worked out
         # to run properly.
-        for test_params in self._generate():
-            func, params = test_params[0], test_params[1:]
-            func(*params)
+        for params in self._generate():
+            self.setUp()
+            self.test_url(*params)
+            self.tearDown()
