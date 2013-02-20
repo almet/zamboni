@@ -11,7 +11,6 @@ from django.test.client import Client, FakePayload
 import oauth2
 from mock import Mock, patch
 from nose.tools import eq_
-from tastypie.exceptions import ImmediateHttpResponse
 from test_utils import RequestFactory
 
 from access.models import Group, GroupUser
