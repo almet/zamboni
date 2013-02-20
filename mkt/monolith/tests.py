@@ -17,11 +17,17 @@ from .models import record_stat, MonolithRecord
 
 
 class RequestFactory(client.RequestFactory):
+
     def __init__(self, session_key=None, user_agent=None,
-                 remote_addr=None, *args, **kwargs):
+                 remote_addr=None, anonymous=True, *args, **kwargs):
+
+        class User(object):
+            def is_anonymous(self):
+                return anonymous
 
         Session = namedtuple('Session', 'session_key')
         self.session = Session(session_key or str(uuid.uuid1()))
+        self.user = User()
         self.META = {}
         if remote_addr:
             self.META['REMOTE_ADDR'] = remote_addr
