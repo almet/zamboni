@@ -15,6 +15,7 @@ class MonolithRecord(models.Model):
     key = models.CharField(max_length=255)
     recorded = models.DateTimeField()
     user = models.CharField(max_length=255)
+    anonymous = models.BooleanField(default=True)
     value = models.TextField()
 
     class Meta:
@@ -57,6 +58,7 @@ def record_stat(key, request, recorded=None, **data):
         raise ValueError('You should at least define one value')
 
     record = MonolithRecord(key=key, user=get_user_hash(request),
+                            anonymous=request.user.is_anonymous(),
                             recorded=recorded, value=json.dumps(data))
     record.save()
     return record

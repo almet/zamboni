@@ -3,6 +3,7 @@ CREATE TABLE `monolith_record` (
     `key` varchar(255) NOT NULL,
     `recorded` datetime NOT NULL,
     `user` varchar(255) NOT NULL,
+    `anonymous` bool NOT NULL,
     `value` longtext NOT NULL
 ) ENGINE=InnoDB CHARACTER SET utf8 COLLATE utf8_general_ci;
 ;
