@@ -1,9 +1,10 @@
 import logging
 import json
 
+from django.db import transaction
+
 from mkt.api.authentication import (PermissionAuthorization,
                                     MarketplaceAuthentication)
-
 from mkt.api.base import MarketplaceResource
 
 from .models import MonolithRecord
@@ -23,6 +24,7 @@ class MonolithData(MarketplaceResource):
         authorization = PermissionAuthorization('Monolith', 'API')
         authentication = MarketplaceAuthentication()
 
+    @transaction.commit_on_success
     def obj_delete_list(self, request=None, **kwargs):
         filters = self.build_filters(request.GET)
         qs = self.get_object_list(request).filter(**filters)
