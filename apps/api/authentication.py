@@ -1,9 +1,13 @@
+import hashlib
+import hmac
 from functools import partial
 
 import commonware.log
 import jingo
 from piston.authentication.oauth import OAuthAuthentication, views
+from rest_framework.authentication import BaseAuthentication
 
+from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 
 from access.middleware import ACLMiddleware
@@ -71,3 +75,55 @@ class AMOOAuthAuthentication(OAuthAuthentication):
                                 status=401)
         response['WWW-Authenticate'] = 'OAuth realm="API"'
         return response
+
+
+class RestOAuthAuthentication(AMOOAuthAuthentication):
+    """Open Authentication suitable for DRF"""
+
+    def authenticate(self, request):
+        result = self.is_authenticated(request)
+
+        if not (result and request.user):
+            return None
+        return (request.user, None)
+
+
+class RestSharedSecretAuthentication(BaseAuthentication):
+    """SharedSecretAuthentication suitable for DRF."""
+
+    def is_authenticated(self, request):
+        auth = request.GET.get('_user')
+        if not auth:
+            log.info('API request made without shared-secret auth token')
+            return False
+        try:
+            email, hm, unique_id = str(auth).split(',')
+            consumer_id = hashlib.sha1(
+                email + settings.SECRET_KEY).hexdigest()
+            matches = hmac.new(unique_id + settings.SECRET_KEY,
+                               consumer_id, hashlib.sha512).hexdigest() == hm
+            if matches:
+                try:
+                    request.amo_user = UserProfile.objects.select_related(
+                        'user').get(email=email)
+                    request.user = request.amo_user.user
+                except UserProfile.DoesNotExist:
+                    log.info('Auth token matches absent user (%s)' % email)
+                    return False
+                ACLMiddleware().process_request(request)
+            else:
+                log.info('Shared-secret auth token does not match')
+                return False
+
+            log.info('Successful SharedSecret with user: %s' % request.user.pk)
+            return matches
+        except Exception, e:
+            log.info('Bad shared-secret auth data: %s (%s)', auth, e)
+            return False
+
+    def authenticate(self, request):
+        result = self.is_authenticated(request)
+
+        if not (result and request.user):
+            return None
+        return (request.user, None)

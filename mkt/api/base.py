@@ -335,8 +335,7 @@ class MarketplaceModelResource(Marketplace, ModelResource):
 
         return super(MarketplaceModelResource, self).base_urls()[:3] + [
             url(r'^(?P<resource_name>%s)/(?P<pk>\d+)/$' %
-                    self._meta.resource_name,
-                self.wrap_view('dispatch_detail'),
+            self._meta.resource_name, self.wrap_view('dispatch_detail'),
                 name='api_dispatch_detail'),
             url(r"^(?P<resource_name>%s)/(?P<%s>[^/<>\"']+)/$" %
                     (self._meta.resource_name, self._meta.slug_lookup),

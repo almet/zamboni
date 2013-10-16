@@ -166,6 +166,8 @@ urlpatterns = patterns('',
     ('^recommended/format:rss$',
      lambda r: redirect('browse.featured.rss', permanent=True)),
 
+    ('^filereg/', include('filereg.urls')),
+
 )
 
 urlpatterns += patterns('piston.authentication.oauth.views',

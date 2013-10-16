@@ -393,6 +393,7 @@ INSTALLED_APPS = (
     'discovery',
     'editors',
     'extras',
+    'filereg',
     'files',
     'jingo_minify',
     'market',
@@ -1595,4 +1596,26 @@ POSTFIX_DOMAIN = 'marketplace.firefox.com'
 # This is a sample AES_KEY, we will override this on each server.
 AES_KEYS = {
     'api:access:secret': os.path.join(ROOT, 'mkt/api/sample-aes.key'),
+}
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'api.authentication.RestSharedSecretAuthentication',
+    ),
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    ),
+    'DEFAULT_PARSER_CLASSES': (
+        'rest_framework.parsers.JSONParser',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        # By default no-one gets anything. You will have to override this
+        # in each resource to match your needs.
+        'mkt.api.authorization.AllowNone',
+    ),
+    'DEFAULT_FILTER_BACKENDS': (
+        'rest_framework.filters.DjangoFilterBackend',
+    ),
+    'PAGINATE_BY': 20,
+    'PAGINATE_BY_PARAM': 'limit'
 }
